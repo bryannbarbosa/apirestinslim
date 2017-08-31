@@ -1,0 +1,15 @@
+{
+    "name": "root/slim_api",
+    "type": "project",
+    "require": {
+        "slim/slim": "^3.8",
+        "catfan/Medoo": "^1.4",
+        "tuupola/slim-jwt-auth": "^2.3"
+    },
+    "authors": [
+        {
+            "name": "bryannbarbosa",
+            "email": "bryannbarbosa@gmail.com"
+        }
+    ]
+}
