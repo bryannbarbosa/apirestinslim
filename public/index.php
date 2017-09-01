@@ -16,14 +16,14 @@ $app = new \Slim\App([
 
 $app->add(new \Slim\Middleware\JwtAuthentication([
     "path" => "/api",
-    "passthrough" => "/api/signin",
+    "passthrough" => ["/api/signin", "/api/tables/search" ,"/api/professions", "/api/ages"],
     "secret" => "bobesponja56"
 ]));
 
 $app->add(function ($request, $response, $next) {
     $response = $next($request, $response);
     return $response->withHeader('Content-Type', 'application/json')
-  ->withHeader('Access-Control-Allow-Origin', 'http://localhost:9000')
+  ->withHeader('Access-Control-Allow-Origin', '*')
   ->withHeader('Access-Control-Allow-Headers', array('Content-Type', 'X-Requested-With', 'Authorization'))
   ->withHeader('Access-Control-Allow-Methods', array('GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'));
 });

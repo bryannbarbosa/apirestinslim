@@ -2,6 +2,7 @@
 
 use \Psr\Http\Message\ServerRequestInterface as Request;
 use \Psr\Http\Message\ResponseInterface as Response;
+use \Firebase\JWT\JWT;
 
 $app->post('/api/signin', function (Request $request, Response $response) {
     global $db;
@@ -18,8 +19,14 @@ $app->post('/api/signin', function (Request $request, Response $response) {
         $id = $db->id();
 
         if (count($account) > 0) {
+            $key = "bobesponja56";
+            $token = array(
+            "iss" => "http://amazonasseguros.com.br",
+            "user_id" => $id
+            );
+            $jwt = JWT::encode($token, $key);
             return $response->withJson(array(
-              'response' => 'Token',
+              'response' => $jwt,
               'success' => true
             ));
         } else {
