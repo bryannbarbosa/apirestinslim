@@ -307,3 +307,58 @@ $app->post('/api/tables/td', function (Request $request, Response $response) {
       ));
     }
 });
+
+$app->post('/api/tables/search', function (Request $request, Response $response) {
+    global $db;
+    $data = $request->getParams();
+
+    $id_table = $db->select("professions_agreements", "*", [
+      "id_profession" => $data['id_profession']
+    ]);
+
+    for($i = 0; $i < count($id_table); $i++) {
+      $informations = $db->select('agreements', '*', [
+        'id' => $id_table[$i]['id_agreement']
+      ]);
+    }
+
+    for($i = 0; $i < count($informations); $i++) {
+      $result_tbody_tr = $db->query("select agreements.id as id_agreement, trs_tbody.id as id, ages_tbody_tr.id_age as id_age
+      from ((agreements
+      inner join trs_tbody on agreements.id = trs_tbody.id_agreement)
+      inner join ages_tbody_tr on trs_tbody.id = ages_tbody_tr.id_tbody_tr and ages_tbody_tr.id_age in(".implode(',',$data['id_ages'])."))")->fetchAll();
+      $informations[$i]['tbody_tr'] = $result_tbody_tr;
+    }
+
+    for($i = 0; $i < count($informations); $i++) {
+      for($j = 0; $j < count($informations[$i]['tbody_tr']); $j++) {
+        $consult_td = $db->select("tds_tbody", "*", [
+        "id_tr" => $informations[$i]['tbody_tr'][$j]['id']
+        ]);
+        $informations[$i]['tbody_tr'][$j]['tds'] = $consult_td;
+      }
+    }
+
+    for ($i = 0; $i < count($informations); $i++) {
+
+        $consult_thead = $db->select("trs_thead", "*", [
+        "id_agreement" => $informations[$i]['id']
+        ]);
+        $informations[$i]['thead_tr'] = $consult_thead;
+
+    }
+
+    for ($i = 0; $i < count($informations); $i++) {
+        for ($j = 0; $j < count($informations[$i]['thead_tr']); $j++) {
+            $consult_th = $db->select("ths_thead", "*", [
+            "id_tr" => $informations[$i]['thead_tr'][$j]['id']
+            ]);
+            $informations[$i]['thead_tr'][$j]['ths'] = $consult_th;
+        }
+    }
+
+    return $response->withJson(array(
+      'response' => $informations,
+      'success' => true
+    ));
+});

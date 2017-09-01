@@ -18,9 +18,9 @@ $app->post('/api/signin', function (Request $request, Response $response) {
         $id = $db->id();
 
         if (count($account) > 0) {
-            // Generate a Token
             return $response->withJson(array(
-              'response' => 'Token'
+              'response' => 'Token',
+              'success' => true
             ));
         } else {
             return $response->withJson(array(
