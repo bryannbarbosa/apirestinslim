@@ -2,6 +2,8 @@
 
 use \Psr\Http\Message\ServerRequestInterface as Request;
 use \Psr\Http\Message\ResponseInterface as Response;
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
 
 // Get All Tables
 
@@ -315,37 +317,43 @@ $app->post('/api/tables/search', function (Request $request, Response $response)
     $id_table = $db->select("professions_agreements", "*", [
       "id_profession" => $data['id_profession']
     ]);
+    $ids_table = [];
 
-    for($i = 0; $i < count($id_table); $i++) {
-      $informations = $db->select('agreements', '*', [
-        'id' => $id_table[$i]['id_agreement']
-      ]);
+    for ($i = 0; $i < count($id_table); $i++) {
+      array_push($ids_table, $id_table[$i]['id_agreement']);
     }
 
-    for($i = 0; $i < count($informations); $i++) {
-      $result_tbody_tr = $db->query("select agreements.id as id_agreement, trs_tbody.id as id, ages_tbody_tr.id_age as id_age
+    $informations = $db->select('agreements', '*', [
+        'id' => $ids_table
+      ]);
+
+
+    for ($i = 0; $i < count($informations); $i++) {
+        $result_tbody_tr = $db->query("select agreements.id as id_agreement, trs_tbody.id as id, ages_tbody_tr.id_age as id_age
       from ((agreements
       inner join trs_tbody on agreements.id = trs_tbody.id_agreement)
-      inner join ages_tbody_tr on trs_tbody.id = ages_tbody_tr.id_tbody_tr and ages_tbody_tr.id_age in(".implode(',',$data['id_ages'])."))")->fetchAll();
-      $informations[$i]['tbody_tr'] = $result_tbody_tr;
+      inner join ages_tbody_tr on trs_tbody.id = ages_tbody_tr.id_tbody_tr and ages_tbody_tr.id_age in(".implode(',', $data['id_ages']).") and agreements.id = {$ids_table[$i]})")->fetchAll();
+        $informations[$i]['tbody_tr'] = $result_tbody_tr;
     }
 
-    for($i = 0; $i < count($informations); $i++) {
-      for($j = 0; $j < count($informations[$i]['tbody_tr']); $j++) {
-        $consult_td = $db->select("tds_tbody", "*", [
+    // return $response->withJson(array(
+    //     'response' => $informations
+    //   ));
+
+    for ($i = 0; $i < count($informations); $i++) {
+        for ($j = 0; $j < count($informations[$i]['tbody_tr']); $j++) {
+            $consult_td = $db->select("tds_tbody", "*", [
         "id_tr" => $informations[$i]['tbody_tr'][$j]['id']
         ]);
-        $informations[$i]['tbody_tr'][$j]['tds'] = $consult_td;
-      }
+            $informations[$i]['tbody_tr'][$j]['tds'] = $consult_td;
+        }
     }
 
     for ($i = 0; $i < count($informations); $i++) {
-
         $consult_thead = $db->select("trs_thead", "*", [
         "id_agreement" => $informations[$i]['id']
         ]);
         $informations[$i]['thead_tr'] = $consult_thead;
-
     }
 
     for ($i = 0; $i < count($informations); $i++) {
@@ -358,7 +366,67 @@ $app->post('/api/tables/search', function (Request $request, Response $response)
     }
 
     return $response->withJson(array(
-      'response' => $informations,
-      'success' => true
-    ));
+        'response' => $informations,
+        'success' => true,
+        'email' => false
+      ));
+});
+
+$app->post('/api/tables/search/email', function (Request $request, Response $response) {
+    global $db;
+    $data = $request->getParams();
+    $mail = new PHPMailer(true);
+    $mail->CharSet = 'UTF-8';
+    $profession_name = $db->select("professions", "profession_name", [
+          "id" => $data['id_profession']
+        ]);
+    $ages = $db->select("ages", "*", [
+          "id" => $data['id_ages']
+        ]);
+    try {
+        $mail->SMTPDebug = 0;
+        $mail->isSMTP();
+        $mail->Host = 'smtp.gmail.com';
+        $mail->SMTPAuth = true;
+        $mail->Username = 'bryannbarbosa@gmail.com';
+        $mail->Password = 'ylmbayageejfmpsm';
+        $mail->SMTPSecure = 'tls';
+        $mail->Port = 587;
+
+        $mail->setFrom('bryannbarbosa@gmail.com', 'Bryann Barbosa');
+        $mail->addAddress($data['informations']['email'], $data['informations']['name']);
+        $mail->addBCC('bryannbarbosa@gmail.com');
+
+        $mail->isHTML(true);
+        $mail->Subject = 'Contato de Formulário (Amazonas Seguros)';
+        $mail->Body = "Nome: <b>{$data['informations']['name']}</b><br />
+        E-mail: <b>{$data['informations']['email']}</b><br />
+        Telefone: <b>".'('.substr($data['informations']['telephone'], 0, 2).') '.substr($data['informations']['telephone'], 4, 4).'-'.substr($data['informations']['telephone'], 6)."</b><br />
+        Empresa: <b>{$data['informations']['company']}</b><br />
+        Cidade: <b>{$data['informations']['city']}</b><br />
+        Consulta por: <b>".strtoupper($data['informations']['person_type'])."</b><br />";
+
+        if ($data['informations']['person_type'] == 'cpf') {
+            $mail->Body .= "Profissão a ser consultada: <b>".ucfirst($profession_name[0])."</b><br />
+          Idades consultadas: <br />";
+            for ($i = 0; $i < count($ages); $i++) {
+              if($data['informations']['age'][$i] == 1) {
+                $mail->Body .= " <b>{$ages[$i]['age_initial']}</b> até <b>{$ages[$i]['age_final']} anos</b> <b>({$data['informations']['age'][$i]}</b> pessoa)<br />";
+              } else {
+                $mail->Body .= " <b>{$ages[$i]['age_initial']}</b> até <b>{$ages[$i]['age_final']} anos</b> <b>({$data['informations']['age'][$i]}</b> pessoas)<br />";
+              }
+            }
+        }
+
+        $mail->send();
+        return $response->withJson(array(
+        'response' => 'email sent successfully!',
+        'success' => true,
+      ));
+    } catch (Exception $e) {
+        return $response->withJson(array(
+        'response' => 'error in send email',
+        'success' => false
+      ));
+    }
 });
